@@ -1,0 +1,9 @@
+{% macro badge(s) %}
+{% set c = {'Draft':'secondary','Slot Creation':'info','Booking Open':'success','Closed':'dark','Completed':'primary',
+ 'Available':'success','Full':'warning','Cancelled':'danger','Booked':'success','active':'success','pending':'warning','inactive':'danger','Active':'success','Inactive':'secondary'} %}
+<span class="badge text-bg-{{ c.get(s,'secondary') }}">{{ s }}</span>
+{% endmacro %}
+{% macro post(url, label, cls='btn-outline-primary', confirm='', extra='') %}
+<form method="post" action="{{ url }}" class="d-inline" {% if confirm %}onsubmit="return confirm('{{ confirm }}')"{% endif %}>
+  {{ extra|safe }}<button class="btn btn-sm {{ cls }}">{{ label }}</button></form>
+{% endmacro %}
