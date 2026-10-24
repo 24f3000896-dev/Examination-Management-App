@@ -1,0 +1,12 @@
+{% extends 'base.html' %}{% block title %}Course{% endblock %}
+{% block content %}
+<h3>{{ 'Edit' if course and course.id else 'New' }} Course</h3>
+<form method="post" class="card card-body shadow-sm col-md-7">
+ <div class="mb-3"><label class="form-label">Course code</label><input name="code" class="form-control" value="{{ course.code if course }}" required></div>
+ <div class="mb-3"><label class="form-label">Course name</label><input name="name" class="form-control" value="{{ course.name if course }}" required></div>
+ <div class="mb-3"><label class="form-label">Description</label><textarea name="description" class="form-control" rows="3">{{ course.description if course and course.description }}</textarea></div>
+ <div class="row"><div class="col mb-3"><label class="form-label">Credits</label><input type="number" min="0" name="credits" class="form-control" value="{{ course.credits if course else 4 }}"></div>
+ <div class="col mb-3"><label class="form-label">Status</label><select name="status" class="form-select">{% for s in ['Active','Inactive'] %}<option {{ 'selected' if course and course.status == s }}>{{ s }}</option>{% endfor %}</select></div></div>
+ <div><button class="btn btn-primary">Save</button> <a class="btn btn-link" href="{{ url_for('admin.courses') }}">Cancel</a></div>
+</form>
+{% endblock %}
