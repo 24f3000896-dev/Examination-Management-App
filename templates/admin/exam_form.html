@@ -1,0 +1,20 @@
+{% extends 'base.html' %}{% block title %}Examination{% endblock %}
+{% block content %}
+{% set e = exam or {} %}
+<h3>{{ 'Edit' if e.id else 'New' }} Examination</h3>
+<form method="post" class="card card-body shadow-sm"><div class="row">
+ <div class="col-md-6 mb-3"><label class="form-label">Course</label><select name="course_id" class="form-select" required>
+  {% for c in courses %}<option value="{{ c.id }}" {{ 'selected' if e.course_id|string == c.id|string }}>{{ c.code }} – {{ c.name }}</option>{% endfor %}</select></div>
+ <div class="col-md-6 mb-3"><label class="form-label">Examination name</label><input name="name" class="form-control" value="{{ e.name or '' }}" required></div>
+ <div class="col-md-4 mb-3"><label class="form-label">Type</label><select name="exam_type" class="form-select">{% for t in types %}<option {{ 'selected' if e.exam_type == t }}>{{ t }}</option>{% endfor %}</select></div>
+ <div class="col-md-4 mb-3"><label class="form-label">Duration (minutes)</label><input type="number" min="1" name="duration" class="form-control" value="{{ e.duration or 15 }}" required></div>
+ <div class="col-md-4 mb-3"><label class="form-label">Maximum marks</label><input type="number" min="1" name="max_marks" class="form-control" value="{{ e.max_marks or 50 }}" required></div>
+ <div class="col-md-3 mb-3"><label class="form-label">Slot creation start</label><input type="date" name="slot_start" class="form-control" value="{{ e.slot_start or '' }}" required></div>
+ <div class="col-md-3 mb-3"><label class="form-label">Slot creation end</label><input type="date" name="slot_end" class="form-control" value="{{ e.slot_end or '' }}" required></div>
+ <div class="col-md-3 mb-3"><label class="form-label">Booking start</label><input type="date" name="book_start" class="form-control" value="{{ e.book_start or '' }}" required></div>
+ <div class="col-md-3 mb-3"><label class="form-label">Booking end</label><input type="date" name="book_end" class="form-control" value="{{ e.book_end or '' }}" required></div>
+ <div class="col-md-6 mb-3"><label class="form-label">Venue</label><input name="venue" class="form-control" value="{{ e.venue or '' }}"></div>
+ <div class="col-md-6 mb-3"><label class="form-label">Instructions</label><input name="instructions" class="form-control" value="{{ e.instructions or '' }}"></div></div>
+ <div><button class="btn btn-primary">Save</button> <a class="btn btn-link" href="{{ url_for('admin.exams') }}">Cancel</a></div>
+</form>
+{% endblock %}

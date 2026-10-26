@@ -1,0 +1,9 @@
+{% extends 'base.html' %}{% from '_m.html' import badge %}{% block title %}Exams{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between mb-3"><h3>Examinations</h3><a class="btn btn-primary" href="{{ url_for('admin.exam_form') }}">+ New Examination</a></div>
+<div class="table-responsive"><table class="table table-striped bg-white shadow-sm"><thead><tr><th>ID</th><th>Course</th><th>Name</th><th>Type</th><th>Marks</th><th>Slot creation</th><th>Booking</th><th>Status</th><th></th></tr></thead><tbody>
+{% for e in exams %}<tr><td>{{ e.id }}</td><td>{{ e.course_code }}</td><td>{{ e.name }}</td><td>{{ e.exam_type }}</td><td>{{ e.max_marks }}</td>
+<td>{{ e.slot_start }} → {{ e.slot_end }}</td><td>{{ e.book_start }} → {{ e.book_end }}</td><td>{{ badge(e.status) }}</td>
+<td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin.exam_detail', eid=e.id) }}">Manage</a></td></tr>
+{% else %}<tr><td colspan="9" class="text-center text-muted">No examinations yet.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

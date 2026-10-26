@@ -73,3 +73,82 @@ def course_delete(cid):
     return redirect(url_for("admin.courses"))
 
 
+# ---------------- Examinations ----------------
+@bp.route("/exams")
+@admin_only
+def exams():
+    rows = q("""SELECT e.*, c.code AS course_code, c.name AS course_name FROM exams e
+                JOIN courses c ON c.id=e.course_id ORDER BY e.id DESC""")
+    return render_template("admin/exams.html", exams=rows)
+
+
+@bp.route("/exams/new", methods=["GET", "POST"])
+@bp.route("/exams/<int:eid>/edit", methods=["GET", "POST"])
+@admin_only
+def exam_form(eid=None):
+    exam = q("SELECT * FROM exams WHERE id=?", (eid,), one=True) if eid else None
+    if eid and not exam:
+        abort(404)
+    if request.method == "POST":
+        f = request.form
+        dates = [valid_date(f.get(k)) for k in ("slot_start", "slot_end", "book_start", "book_end")]
+        duration, max_marks, course_id = to_int(f.get("duration")), to_int(f.get("max_marks")), to_int(f.get("course_id"))
+        err = None
+        if not f.get("name", "").strip() or not course_id:
+            err = "Name and course are required."
+        elif f.get("exam_type") not in EXAM_TYPES:
+            err = "Invalid examination type."
+        elif not duration or duration <= 0 or not max_marks or max_marks <= 0:
+            err = "Duration and maximum marks must be positive numbers."
+        elif None in dates:
+            err = "All four timeline dates are required."
+        elif dates[0] > dates[1] or dates[2] > dates[3]:
+            err = "End dates cannot be before start dates."
+        elif dates[1] > dates[3]:
+            err = "Slot creation must end on or before the booking end date."
+        if err:
+            flash(err, "danger")
+            exam = dict(f)
+            exam["id"] = eid
+        else:
+            vals = (course_id, f["name"].strip(), f["exam_type"], duration, max_marks, *dates,
+                    f.get("venue", "").strip(), f.get("instructions", "").strip())
+            if eid:
+                run("""UPDATE exams SET course_id=?,name=?,exam_type=?,duration=?,max_marks=?,slot_start=?,slot_end=?,
+                       book_start=?,book_end=?,venue=?,instructions=? WHERE id=?""", vals + (eid,))
+            else:
+                eid = run("""INSERT INTO exams(course_id,name,exam_type,duration,max_marks,slot_start,slot_end,
+                             book_start,book_end,venue,instructions) VALUES(?,?,?,?,?,?,?,?,?,?,?)""", vals)
+            flash("Examination saved.", "success")
+            return redirect(url_for("admin.exam_detail", eid=eid))
+    courses = q("SELECT * FROM courses WHERE status='Active' ORDER BY code")
+    return render_template("admin/exam_form.html", exam=exam, courses=courses, types=EXAM_TYPES)
+
+
+@bp.route("/exams/<int:eid>")
+@admin_only
+def exam_detail(eid):
+    exam = q("SELECT e.*, c.code AS course_code, c.name AS course_name FROM exams e JOIN courses c ON c.id=e.course_id WHERE e.id=?",
+             (eid,), one=True)
+    if not exam:
+        abort(404)
+    rubrics = q("SELECT * FROM rubrics WHERE exam_id=?", (eid,))
+    assigned = q("SELECT u.* FROM users u JOIN exam_examiners ee ON ee.examiner_id=u.id WHERE ee.exam_id=?", (eid,))
+    candidates = q("""SELECT * FROM users WHERE role='examiner' AND status='active'
+                      AND id NOT IN (SELECT examiner_id FROM exam_examiners WHERE exam_id=?)""", (eid,))
+    slots = q(SLOT_SQL + " WHERE sl.exam_id=? ORDER BY sl.slot_date, sl.start_time", (eid,))
+    return render_template("admin/exam_detail.html", exam=exam, rubrics=rubrics, assigned=assigned,
+                           candidates=candidates, slots=slots, statuses=EXAM_STATUSES,
+                           rubric_total=sum(r["max_marks"] for r in rubrics))
+
+
+@bp.route("/exams/<int:eid>/delete", methods=["POST"])
+@admin_only
+def exam_delete(eid):
+    try:
+        run("DELETE FROM exams WHERE id=?", (eid,))
+        flash("Examination deleted.", "success")
+    except sqlite3.IntegrityError:
+        flash("This examination already has slots/bookings. Set its status to Closed instead.", "warning")
+        return redirect(url_for("admin.exam_detail", eid=eid))
+    return redirect(url_for("admin.exams"))
