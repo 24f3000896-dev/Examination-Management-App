@@ -152,3 +152,45 @@ def exam_delete(eid):
         flash("This examination already has slots/bookings. Set its status to Closed instead.", "warning")
         return redirect(url_for("admin.exam_detail", eid=eid))
     return redirect(url_for("admin.exams"))
+
+
+@bp.route("/exams/<int:eid>/status", methods=["POST"])
+@admin_only
+def exam_status(eid):
+    """Covers: open/close slot creation, open/close student booking, mark completed."""
+    status = request.form.get("status")
+    if status not in EXAM_STATUSES:
+        abort(400)
+    run("UPDATE exams SET status=? WHERE id=?", (status, eid))
+    flash(f"Examination status set to '{status}'.", "success")
+    return redirect(url_for("admin.exam_detail", eid=eid))
+
+
+@bp.route("/exams/<int:eid>/publish", methods=["POST"])
+@admin_only
+def exam_publish(eid):
+    run("UPDATE exams SET results_published = 1 - results_published WHERE id=?", (eid,))
+    flash("Result publication toggled.", "success")
+    return redirect(url_for("admin.exam_detail", eid=eid))
+
+
+@bp.route("/exams/<int:eid>/examiners", methods=["POST"])
+@admin_only
+def exam_assign(eid):
+    xid = to_int(request.form.get("examiner_id"))
+    if q("SELECT 1 FROM users WHERE id=? AND role='examiner' AND status='active'", (xid,), one=True):
+        run("INSERT OR IGNORE INTO exam_examiners(exam_id,examiner_id) VALUES(?,?)", (eid, xid))
+        flash("Examiner assigned.", "success")
+    else:
+        flash("Only approved, active examiners can be assigned.", "danger")
+    return redirect(url_for("admin.exam_detail", eid=eid))
+
+
+@bp.route("/exams/<int:eid>/examiners/<int:xid>/remove", methods=["POST"])
+@admin_only
+def exam_unassign(eid, xid):
+    run("DELETE FROM exam_examiners WHERE exam_id=? AND examiner_id=?", (eid, xid))
+    flash("Examiner removed from examination.", "success")
+    return redirect(url_for("admin.exam_detail", eid=eid))
+
+
