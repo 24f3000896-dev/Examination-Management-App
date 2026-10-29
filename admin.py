@@ -194,3 +194,49 @@ def exam_unassign(eid, xid):
     return redirect(url_for("admin.exam_detail", eid=eid))
 
 
+# ---------------- Rubrics ----------------
+def _rubric_vals(f):
+    crit, mx, wt = f.get("criterion", "").strip(), to_float(f.get("max_marks")), to_float(f.get("weightage"), None)
+    if not crit or not mx or mx <= 0:
+        return None
+    return crit, mx, (mx if wt is None else wt), f.get("description", "").strip()
+
+
+@bp.route("/exams/<int:eid>/rubrics", methods=["POST"])
+@admin_only
+def rubric_add(eid):
+    v = _rubric_vals(request.form)
+    if not v:
+        flash("Criterion name and positive max marks are required.", "danger")
+    else:
+        run("INSERT INTO rubrics(exam_id,criterion,max_marks,weightage,description) VALUES(?,?,?,?,?)", (eid,) + v)
+        flash("Rubric criterion added.", "success")
+    return redirect(url_for("admin.exam_detail", eid=eid))
+
+
+@bp.route("/rubrics/<int:rid>/edit", methods=["GET", "POST"])
+@admin_only
+def rubric_edit(rid):
+    r = q("SELECT * FROM rubrics WHERE id=?", (rid,), one=True) or abort(404)
+    if request.method == "POST":
+        v = _rubric_vals(request.form)
+        if v:
+            run("UPDATE rubrics SET criterion=?,max_marks=?,weightage=?,description=? WHERE id=?", v + (rid,))
+            flash("Rubric updated.", "success")
+            return redirect(url_for("admin.exam_detail", eid=r["exam_id"]))
+        flash("Criterion name and positive max marks are required.", "danger")
+    return render_template("admin/rubric_form.html", r=r)
+
+
+@bp.route("/rubrics/<int:rid>/delete", methods=["POST"])
+@admin_only
+def rubric_delete(rid):
+    r = q("SELECT * FROM rubrics WHERE id=?", (rid,), one=True) or abort(404)
+    if q("SELECT 1 FROM rubric_scores WHERE rubric_id=? LIMIT 1", (rid,), one=True):
+        flash("This criterion has already been used in evaluations and cannot be removed.", "warning")
+    else:
+        run("DELETE FROM rubrics WHERE id=?", (rid,))
+        flash("Rubric criterion removed.", "success")
+    return redirect(url_for("admin.exam_detail", eid=r["exam_id"]))
+
+
