@@ -1,0 +1,10 @@
+{% extends 'base.html' %}{% from '_m.html' import badge %}{% block title %}{{ kind }}{% endblock %}
+{% block content %}
+<h3 class="mb-3">{{ kind }}</h3>
+<div class="table-responsive"><table class="table table-striped bg-white shadow-sm"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Department</th>{% if kind == 'Students' %}<th>Roll</th><th>Bookings</th>{% else %}<th>Slots</th>{% endif %}<th>Status</th><th></th></tr></thead><tbody>
+{% for u in users %}<tr><td>{{ u.id }}</td><td>{{ u.name }}</td><td>{{ u.email }}</td><td>{{ u.phone }}</td><td>{{ u.department }}</td>
+{% if kind == 'Students' %}<td>{{ u.roll_no }}</td><td>{{ u.booking_count }}</td>{% else %}<td>{{ u.slot_count }}</td>{% endif %}<td>{{ badge(u.status) }}</td>
+<td class="text-end">{% if u.status != 'active' %}<form method="post" action="{{ url_for('admin.user_status', uid=u.id) }}" class="d-inline"><input type="hidden" name="status" value="active"><button class="btn btn-sm btn-success">{{ 'Approve' if u.status == 'pending' else 'Activate' }}</button></form>{% endif %}
+{% if u.status != 'inactive' %}<form method="post" action="{{ url_for('admin.user_status', uid=u.id) }}" class="d-inline" onsubmit="return confirm('Deactivate this user?')"><input type="hidden" name="status" value="inactive"><button class="btn btn-sm btn-outline-danger">Deactivate</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="9" class="text-center text-muted">None yet.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

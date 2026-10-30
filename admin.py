@@ -240,3 +240,32 @@ def rubric_delete(rid):
     return redirect(url_for("admin.exam_detail", eid=r["exam_id"]))
 
 
+# ---------------- Users ----------------
+@bp.route("/examiners")
+@admin_only
+def examiners():
+    rows = q("""SELECT u.*, (SELECT COUNT(*) FROM slots WHERE examiner_id=u.id) AS slot_count
+                FROM users u WHERE role='examiner' ORDER BY (status='pending') DESC, name""")
+    return render_template("admin/users.html", users=rows, kind="Examiners")
+
+
+@bp.route("/students")
+@admin_only
+def students():
+    rows = q("""SELECT u.*, (SELECT COUNT(*) FROM bookings WHERE student_id=u.id) AS booking_count
+                FROM users u WHERE role='student' ORDER BY name""")
+    return render_template("admin/users.html", users=rows, kind="Students")
+
+
+@bp.route("/users/<int:uid>/status", methods=["POST"])
+@admin_only
+def user_status(uid):
+    status = request.form.get("status")
+    u = q("SELECT * FROM users WHERE id=? AND role IN ('examiner','student')", (uid,), one=True) or abort(404)
+    if status not in ("active", "inactive"):
+        abort(400)
+    run("UPDATE users SET status=? WHERE id=?", (status, uid))
+    flash(f"{u['name']} is now {status}.", "success")
+    return redirect(request.referrer or url_for("admin.dashboard"))
+
+
