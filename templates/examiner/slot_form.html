@@ -1,0 +1,14 @@
+{% extends 'base.html' %}{% block title %}Slot{% endblock %}
+{% block content %}
+<h3>{{ 'Edit' if slot else 'New' }} Examination Slot</h3>
+{% if not slot and not exams %}<div class="alert alert-warning">Slot creation is not open for any of your assigned examinations right now.</div>{% else %}
+<form method="post" class="card card-body shadow-sm col-md-7">
+ {% if slot %}<p class="text-muted">Examination: <b>{{ slot.exam }}</b></p>{% else %}
+ <div class="mb-3"><label class="form-label">Examination</label><select name="exam_id" class="form-select" required>{% for e in exams %}<option value="{{ e.id }}">{{ e.course_code }} – {{ e.name }}</option>{% endfor %}</select></div>{% endif %}
+ <div class="row"><div class="col-md-4 mb-3"><label class="form-label">Date</label><input type="date" name="slot_date" class="form-control" value="{{ slot.slot_date if slot }}" required></div>
+ <div class="col-md-4 mb-3"><label class="form-label">Start</label><input type="time" name="start_time" class="form-control" value="{{ slot.start_time if slot }}" required></div>
+ <div class="col-md-4 mb-3"><label class="form-label">End</label><input type="time" name="end_time" class="form-control" value="{{ slot.end_time if slot }}" required></div>
+ <div class="col-md-4 mb-3"><label class="form-label">Capacity</label><input type="number" min="1" name="capacity" class="form-control" value="{{ slot.capacity if slot else 1 }}" required></div>
+ <div class="col-md-8 mb-3"><label class="form-label">Location</label><input name="location" class="form-control" value="{{ slot.location if slot and slot.location }}"></div></div>
+ <div><button class="btn btn-primary">Save</button> <a class="btn btn-link" href="{{ url_for('examiner.dashboard') }}">Cancel</a></div></form>{% endif %}
+{% endblock %}
