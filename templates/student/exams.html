@@ -1,0 +1,12 @@
+{% extends 'base.html' %}{% from '_m.html' import badge %}{% block title %}Examinations{% endblock %}
+{% block content %}
+<h3 class="mb-3">Examinations</h3>
+<form class="row g-2 mb-3"><div class="col-md-4"><input name="q" value="{{ term }}" class="form-control" placeholder="Search by name / course"></div>
+<div class="col-md-3"><select name="type" class="form-select"><option value="">All types</option>{% for t in types %}<option {{ 'selected' if etype == t }}>{{ t }}</option>{% endfor %}</select></div>
+<div class="col-md-3"><select name="course" class="form-select"><option value="">All courses</option>{% for c in courses %}<option value="{{ c.id }}" {{ 'selected' if course == c.id|string }}>{{ c.code }}</option>{% endfor %}</select></div>
+<div class="col-md-2"><button class="btn btn-primary w-100">Filter</button></div></form>
+<div class="table-responsive"><table class="table bg-white shadow-sm"><thead><tr><th>Course</th><th>Examination</th><th>Type</th><th>Duration</th><th>Marks</th><th>Booking window</th><th>Status</th><th></th></tr></thead><tbody>
+{% for e in exams %}<tr><td>{{ e.course_code }}</td><td>{{ e.name }}</td><td>{{ e.exam_type }}</td><td>{{ e.duration }} min</td><td>{{ e.max_marks }}</td><td>{{ e.book_start }} → {{ e.book_end }}</td><td>{{ badge(e.status) }}</td>
+<td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('student.exam_detail', eid=e.id) }}">Details</a></td></tr>
+{% else %}<tr><td colspan="8" class="text-center text-muted">No examinations found.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends 'base.html' %}{% from '_m.html' import badge, post %}{% block title %}Student{% endblock %}
+{% block content %}
+<h3 class="mb-3">Welcome, {{ g.user.name }}</h3>
+<div class="row g-4">
+<div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-header">Available examinations (booking open)</div><ul class="list-group list-group-flush">
+{% for e in exams %}<li class="list-group-item d-flex justify-content-between"><span>{{ e.course_code }} – {{ e.name }}<div class="small text-muted">Book by {{ e.book_end }}</div></span><a class="btn btn-sm btn-outline-primary align-self-center" href="{{ url_for('student.exam_detail', eid=e.id) }}">View</a></li>
+{% else %}<li class="list-group-item text-muted">None right now.</li>{% endfor %}</ul></div></div>
+<div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-header">Available slots</div><ul class="list-group list-group-flush">
+{% for s in slots %}<li class="list-group-item d-flex justify-content-between"><span>{{ s.exam }}<div class="small text-muted">{{ s.slot_date }} {{ s.start_time }}–{{ s.end_time }} · {{ s.available }} seat(s)</div></span>
+ <span class="align-self-center">{{ post(url_for('student.book', sid=s.id), 'Book', 'btn-success') }}</span></li>
+{% else %}<li class="list-group-item text-muted">No open slots.</li>{% endfor %}</ul></div></div>
+<div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-header">Upcoming examinations</div><ul class="list-group list-group-flush">
+{% for b in upcoming %}<li class="list-group-item">{{ b.exam }} · {{ b.slot_date }} {{ b.start_time }}–{{ b.end_time }} · {{ b.location }}</li>
+{% else %}<li class="list-group-item text-muted">Nothing upcoming.</li>{% endfor %}</ul></div></div>
+<div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-header">Published results</div><ul class="list-group list-group-flush">
+{% for r in results %}<li class="list-group-item d-flex justify-content-between">{{ r.exam }}<b>{{ '%g'|format(r.total) }} / {{ r.max_marks }}</b></li>
+{% else %}<li class="list-group-item text-muted">No results published.</li>{% endfor %}</ul></div></div>
+<div class="col-12"><div class="card shadow-sm"><div class="card-header">Booked slots ({{ booked|length }})</div><ul class="list-group list-group-flush">
+{% for b in booked %}<li class="list-group-item d-flex justify-content-between">{{ b.exam }} · {{ b.slot_date }} {{ b.start_time }} · {{ b.examiner }}
+ {{ post(url_for('student.cancel', bid=b.id), 'Cancel', 'btn-outline-danger', 'Cancel this booking?') }}</li>
+{% else %}<li class="list-group-item text-muted">No active bookings.</li>{% endfor %}</ul></div></div>
+</div>
+{% endblock %}
