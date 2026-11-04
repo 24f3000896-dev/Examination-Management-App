@@ -63,3 +63,47 @@ def exam_detail(eid):
     return render_template("student/exam_detail.html", exam=exam, rubrics=rubrics, slots=slots,
                            booked=has_active_booking(g.user["id"], eid), open=can_book(exam))
 
+
+@bp.route("/book/<int:sid>", methods=["POST"])
+@student_only
+def book(sid):
+    slot = q(SLOT_SQL + " WHERE sl.id=?", (sid,), one=True) or abort(404)
+    exam = q("SELECT * FROM exams WHERE id=?", (slot["exam_id"],), one=True)
+    uid = g.user["id"]
+    if not can_book(exam):
+        flash("Booking is not open for this examination.", "danger")
+    elif has_active_booking(uid, exam["id"]):
+        flash("You already have a booking for this examination.", "warning")
+    else:
+        db = get_db()
+        # Atomic guard: succeeds only while seats remain -> no overbooking
+        cur = db.execute("UPDATE slots SET available=available-1 WHERE id=? AND available>0 AND status='Available'", (sid,))
+        if cur.rowcount == 0:
+            db.rollback()
+            flash("Sorry, that slot is full or unavailable.", "danger")
+        else:
+            db.execute("INSERT INTO bookings(student_id,slot_id,booking_date) VALUES(?,?,?)",
+                       (uid, sid, datetime.now().strftime("%Y-%m-%d %H:%M")))
+            db.execute("UPDATE slots SET status='Full' WHERE id=? AND available=0", (sid,))   # auto-close at capacity
+            db.commit()
+            flash("Slot booked successfully!", "success")
+    return redirect(url_for("student.bookings"))
+
+
+@bp.route("/cancel/<int:bid>", methods=["POST"])
+@student_only
+def cancel(bid):
+    b = q(BOOKING_SQL + " WHERE b.id=? AND b.student_id=?", (bid, g.user["id"]), one=True) or abort(404)
+    exam = q("SELECT * FROM exams WHERE id=?", (b["exam_id"],), one=True)
+    if b["status"] != "Booked":
+        flash("Only active bookings can be cancelled.", "warning")
+    elif not (exam["status"] == "Booking Open" and in_window(exam["book_start"], exam["book_end"])):
+        flash("The booking deadline has passed; cancellation is no longer possible.", "danger")
+    else:
+        db = get_db()
+        db.execute("UPDATE bookings SET status='Cancelled', cancelled_at=? WHERE id=?", (datetime.now().strftime("%Y-%m-%d %H:%M"), bid))
+        db.execute("UPDATE slots SET available=available+1, status='Available' WHERE id=? AND status IN ('Full','Available')", (b["slot_id"],))
+        db.commit()
+        flash("Booking cancelled.", "success")
+    return redirect(url_for("student.bookings"))
+
