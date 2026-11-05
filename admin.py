@@ -269,3 +269,67 @@ def user_status(uid):
     return redirect(request.referrer or url_for("admin.dashboard"))
 
 
+# ---------------- Slots & Bookings ----------------
+@bp.route("/slots")
+@admin_only
+def slots():
+    rows = q(SLOT_SQL + " ORDER BY sl.slot_date DESC, sl.start_time")
+    examiners = q("SELECT id, name FROM users WHERE role='examiner' AND status='active' ORDER BY name")
+    return render_template("admin/slots.html", slots=rows, examiners=examiners)
+
+
+@bp.route("/slots/<int:sid>/examiner", methods=["POST"])
+@admin_only
+def slot_examiner(sid):
+    """Change the assigned examiner in exceptional situations (clash check included)."""
+    slot = q("SELECT * FROM slots WHERE id=?", (sid,), one=True) or abort(404)
+    xid = to_int(request.form.get("examiner_id"))
+    if not q("SELECT 1 FROM users WHERE id=? AND role='examiner' AND status='active'", (xid,), one=True):
+        flash("Choose an active, approved examiner.", "danger")
+    elif q("""SELECT 1 FROM slots WHERE examiner_id=? AND slot_date=? AND id!=? AND status!='Cancelled'
+              AND start_time < ? AND end_time > ?""",
+           (xid, slot["slot_date"], sid, slot["end_time"], slot["start_time"]), one=True):
+        flash("That examiner already has an overlapping slot.", "danger")
+    else:
+        run("UPDATE slots SET examiner_id=? WHERE id=?", (xid, sid))
+        run("INSERT OR IGNORE INTO exam_examiners(exam_id,examiner_id) VALUES(?,?)", (slot["exam_id"], xid))
+        flash("Examiner changed.", "success")
+    return redirect(url_for("admin.slots"))
+
+
+@bp.route("/bookings")
+@admin_only
+def bookings():
+    rows = q(BOOKING_SQL + " ORDER BY b.id DESC")
+    return render_template("admin/bookings.html", bookings=rows)
+
+
+@bp.route("/bookings/<int:bid>/reschedule", methods=["GET", "POST"])
+@admin_only
+def reschedule(bid):
+    b = q(BOOKING_SQL + " WHERE b.id=?", (bid,), one=True) or abort(404)
+    if b["status"] != "Booked":
+        flash("Only active bookings can be rescheduled.", "warning")
+        return redirect(url_for("admin.bookings"))
+    options = q(SLOT_SQL + " WHERE sl.exam_id=? AND sl.id!=? AND sl.status='Available' AND sl.available>0 "
+                "ORDER BY sl.slot_date, sl.start_time", (b["exam_id"], b["slot_id"]))
+    if request.method == "POST":
+        new = to_int(request.form.get("slot_id"))
+        if new not in [o["id"] for o in options]:
+            flash("Pick a valid slot of the same examination with free seats.", "danger")
+        else:
+            db = get_db()
+            cur = db.execute("UPDATE slots SET available=available-1 WHERE id=? AND available>0 AND status='Available'", (new,))
+            if cur.rowcount == 0:
+                db.rollback()
+                flash("That slot just filled up.", "danger")
+            else:
+                db.execute("UPDATE slots SET available=available+1, status=CASE WHEN status='Full' THEN 'Available' ELSE status END WHERE id=?", (b["slot_id"],))
+                db.execute("UPDATE slots SET status='Full' WHERE id=? AND available=0", (new,))
+                db.execute("UPDATE bookings SET slot_id=? WHERE id=?", (new, bid))
+                db.commit()
+                flash("Booking rescheduled.", "success")
+                return redirect(url_for("admin.bookings"))
+    return render_template("admin/reschedule.html", b=b, options=options)
+
+
