@@ -1,0 +1,11 @@
+{% extends 'base.html' %}{% block title %}Evaluate{% endblock %}
+{% block content %}
+<h3>Evaluate: {{ b.student }}</h3>
+<p class="text-muted">{{ b.exam }} · {{ b.slot_date }} {{ b.start_time }} · out of {{ b.max_marks }} marks</p>
+<form method="post" class="card card-body shadow-sm col-lg-8">
+{% for r in rubrics %}<div class="row mb-3 align-items-center">
+ <div class="col-md-7"><b>{{ r.criterion }}</b><div class="small text-muted">{{ r.description }} (weight {{ '%g'|format(r.weightage) }})</div></div>
+ <div class="col-md-5"><div class="input-group"><input type="number" step="any" min="0" max="{{ r.max_marks }}" name="m_{{ r.id }}" class="form-control" value="{{ scores.get(r.id, '') }}" required><span class="input-group-text">/ {{ '%g'|format(r.max_marks) }}</span></div></div></div>{% endfor %}
+ <div class="mb-3"><label class="form-label">Remarks / feedback</label><textarea name="remarks" rows="3" class="form-control">{{ result.remarks if result and result.remarks }}</textarea></div>
+ <div><button class="btn btn-success">Submit marks</button> <a class="btn btn-link" href="{{ url_for('examiner.slot_bookings', sid=b.slot_id) }}">Cancel</a></div></form>
+{% endblock %}

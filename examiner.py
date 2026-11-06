@@ -115,3 +115,59 @@ def slot_delete(sid):
         flash("Slot removed.", "success")
     return redirect(url_for("examiner.dashboard"))
 
+
+@bp.route("/slots/<int:sid>")
+@examiner_only
+def slot_bookings(sid):
+    slot = _own_slot(sid)
+    rows = q("""SELECT b.id, b.status, b.booking_date, s.name AS student, s.email, s.roll_no, r.total, r.remarks
+                FROM bookings b JOIN users s ON s.id=b.student_id LEFT JOIN results r ON r.booking_id=b.id
+                WHERE b.slot_id=? ORDER BY b.status, s.name""", (sid,))
+    return render_template("examiner/slot_bookings.html", slot=slot, rows=rows)
+
+
+@bp.route("/evaluate/<int:bid>", methods=["GET", "POST"])
+@examiner_only
+def evaluate(bid):
+    # Only bookings that belong to THIS examiner's slots can be evaluated
+    b = q(BOOKING_SQL + " WHERE b.id=? AND sl.examiner_id=?", (bid, g.user["id"]), one=True)
+    if not b or b["status"] == "Cancelled":
+        abort(403)
+    rubrics = q("SELECT * FROM rubrics WHERE exam_id=? ORDER BY id", (b["exam_id"],))
+    if not rubrics:
+        flash("No rubric has been defined for this examination yet. Ask the Admin.", "warning")
+        return redirect(url_for("examiner.slot_bookings", sid=b["slot_id"]))
+    scores = {r["rubric_id"]: r["marks"] for r in q("SELECT * FROM rubric_scores WHERE booking_id=?", (bid,))}
+    result = q("SELECT * FROM results WHERE booking_id=?", (bid,), one=True)
+    if request.method == "POST":
+        got, err = {}, None
+        for r in rubrics:
+            m = to_float(request.form.get(f"m_{r['id']}"))
+            if m is None or m < 0 or m > r["max_marks"]:
+                err = f"Marks for '{r['criterion']}' must be between 0 and {r['max_marks']:g}."
+                break
+            got[r["id"]] = m
+        if err:
+            flash(err, "danger")
+            scores = {k: request.form.get(f"m_{k}") for k in [r["id"] for r in rubrics]}
+        else:
+            wsum = sum(r["weightage"] for r in rubrics)
+            if wsum > 0:
+                frac = sum(got[r["id"]] / r["max_marks"] * r["weightage"] for r in rubrics) / wsum
+            else:
+                frac = sum(got.values()) / sum(r["max_marks"] for r in rubrics)
+            total = round(frac * b["max_marks"], 2)
+            db = get_db()
+            for rid, m in got.items():
+                db.execute("""INSERT INTO rubric_scores(booking_id,rubric_id,marks) VALUES(?,?,?)
+                              ON CONFLICT(booking_id,rubric_id) DO UPDATE SET marks=excluded.marks""", (bid, rid, m))
+            db.execute("""INSERT INTO results(booking_id,total,remarks) VALUES(?,?,?)
+                          ON CONFLICT(booking_id) DO UPDATE SET total=excluded.total, remarks=excluded.remarks,
+                          evaluated_at=CURRENT_TIMESTAMP""", (bid, total, request.form.get("remarks", "").strip()))
+            db.execute("UPDATE bookings SET status='Completed' WHERE id=?", (bid,))
+            db.execute("""UPDATE slots SET status='Completed' WHERE id=? AND NOT EXISTS
+                          (SELECT 1 FROM bookings WHERE slot_id=? AND status='Booked')""", (b["slot_id"], b["slot_id"]))
+            db.commit()
+            flash(f"Evaluation saved. Total: {total:g} / {b['max_marks']}.", "success")
+            return redirect(url_for("examiner.slot_bookings", sid=b["slot_id"]))
+    return render_template("examiner/evaluate.html", b=b, rubrics=rubrics, scores=scores, result=result)
