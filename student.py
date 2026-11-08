@@ -107,3 +107,43 @@ def cancel(bid):
         flash("Booking cancelled.", "success")
     return redirect(url_for("student.bookings"))
 
+
+@bp.route("/bookings")
+@student_only
+def bookings():
+    rows = q(BOOKING_SQL + " WHERE b.student_id=? ORDER BY b.id DESC", (g.user["id"],))
+    return render_template("student/bookings.html", bookings=rows, today=today())
+
+
+def _results(uid, bid=None):
+    sql = """SELECT b.id AS booking_id, e.id AS exam_id, e.name AS exam, e.max_marks, e.exam_type, c.code AS course_code,
+             sl.slot_date, x.name AS examiner, r.total, r.remarks
+             FROM results r JOIN bookings b ON b.id=r.booking_id JOIN slots sl ON sl.id=b.slot_id
+             JOIN exams e ON e.id=sl.exam_id JOIN courses c ON c.id=e.course_id JOIN users x ON x.id=sl.examiner_id
+             WHERE b.student_id=? AND e.results_published=1"""
+    args = [uid]
+    if bid:
+        sql += " AND b.id=?"
+        args.append(bid)
+    return q(sql, args)
+
+
+@bp.route("/results")
+@student_only
+def results():
+    rows = _results(g.user["id"])
+    detail = {r["booking_id"]: q("""SELECT ru.criterion, ru.max_marks, rs.marks FROM rubric_scores rs
+                                    JOIN rubrics ru ON ru.id=rs.rubric_id WHERE rs.booking_id=?""", (r["booking_id"],)) for r in rows}
+    return render_template("student/results.html", rows=rows, detail=detail)
+
+
+@bp.route("/results/<int:bid>/scorecard.csv")
+@student_only
+def scorecard(bid):
+    r = (_results(g.user["id"], bid) or abort(404))[0]
+    lines = ["Student,Roll No,Course,Examination,Type,Examiner,Date,Total,Max Marks,Remarks",
+             ",".join('"%s"' % str(v).replace('"', "'") for v in (g.user["name"], g.user["roll_no"] or "", r["course_code"],
+                      r["exam"], r["exam_type"], r["examiner"], r["slot_date"], r["total"], r["max_marks"], r["remarks"] or ""))]
+    return Response("\n".join(lines), mimetype="text/csv",
+                    headers={"Content-Disposition": f"attachment; filename=scorecard_{bid}.csv"})
+

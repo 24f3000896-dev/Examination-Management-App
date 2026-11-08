@@ -1,0 +1,11 @@
+{% extends 'base.html' %}{% block title %}Results{% endblock %}
+{% block content %}
+<h3 class="mb-3">Published Results &amp; Feedback</h3>
+{% for r in rows %}<div class="card shadow-sm mb-3"><div class="card-body">
+ <div class="d-flex justify-content-between"><h5>{{ r.course_code }} – {{ r.exam }}</h5><h5>{{ '%g'|format(r.total) }} / {{ r.max_marks }}</h5></div>
+ <div class="small text-muted mb-2">{{ r.exam_type }} · {{ r.slot_date }} · Examiner: {{ r.examiner }}</div>
+ <table class="table table-sm w-auto">{% for d in detail[r.booking_id] %}<tr><td>{{ d.criterion }}</td><td>{{ '%g'|format(d.marks) }} / {{ '%g'|format(d.max_marks) }}</td></tr>{% endfor %}</table>
+ <p class="mb-2"><b>Remarks:</b> {{ r.remarks or '—' }}</p>
+ <a class="btn btn-sm btn-outline-primary" href="{{ url_for('student.scorecard', bid=r.booking_id) }}">Download scorecard (CSV)</a></div></div>
+{% else %}<p class="text-muted">No results have been published yet.</p>{% endfor %}
+{% endblock %}
