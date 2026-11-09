@@ -1,0 +1,14 @@
+{% extends 'base.html' %}{% from '_m.html' import badge %}{% block title %}Search{% endblock %}
+{% block content %}
+<h3 class="mb-3">Search</h3>
+<form class="row g-2 mb-4"><div class="col-md-6"><input name="q" value="{{ term }}" class="form-control" placeholder="Name, email, roll no. or ID" required></div>
+ <div class="col-md-3"><select name="type" class="form-select">{% for v, l in [('all','Everything'),('students','Students'),('examiners','Examiners'),('exams','Examinations'),('bookings','Bookings')] %}<option value="{{ v }}" {{ 'selected' if kind == v }}>{{ l }}</option>{% endfor %}</select></div>
+ <div class="col-md-3"><button class="btn btn-primary w-100">Search</button></div></form>
+{% for title, rows in res.items() %}<h5>{{ title }} ({{ rows|length }})</h5>
+<ul class="list-group mb-4">{% for r in rows %}<li class="list-group-item">
+ {% if title in ('Students','Examiners') %}#{{ r.id }} {{ r.name }} · {{ r.email }} {{ badge(r.status) }}
+ {% elif title == 'Examinations' %}<a href="{{ url_for('admin.exam_detail', eid=r.id) }}">#{{ r.id }} {{ r.name }}</a> · {{ r.course_code }} {{ badge(r.status) }}
+ {% else %}#{{ r.id }} {{ r.student }} → {{ r.exam }} · {{ r.slot_date }} {{ r.start_time }} {{ badge(r.status) }}{% endif %}</li>
+{% else %}<li class="list-group-item text-muted">No matches.</li>{% endfor %}</ul>{% endfor %}
+{% if term and not res %}<p class="text-muted">Nothing to search.</p>{% endif %}
+{% endblock %}

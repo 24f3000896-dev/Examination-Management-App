@@ -333,3 +333,21 @@ def reschedule(bid):
     return render_template("admin/reschedule.html", b=b, options=options)
 
 
+# ---------------- Search ----------------
+@bp.route("/search")
+@admin_only
+def search():
+    term, kind = request.args.get("q", "").strip(), request.args.get("type", "all")
+    res = {}
+    if term:
+        like, idm = f"%{term}%", (int(term) if term.isdigit() else -1)
+        if kind in ("all", "students"):
+            res["Students"] = q("SELECT * FROM users WHERE role='student' AND (name LIKE ? OR email LIKE ? OR roll_no LIKE ? OR id=?)", (like, like, like, idm))
+        if kind in ("all", "examiners"):
+            res["Examiners"] = q("SELECT * FROM users WHERE role='examiner' AND (name LIKE ? OR email LIKE ? OR id=?)", (like, like, idm))
+        if kind in ("all", "exams"):
+            res["Examinations"] = q("""SELECT e.*, c.code AS course_code FROM exams e JOIN courses c ON c.id=e.course_id
+                                       WHERE e.name LIKE ? OR c.name LIKE ? OR c.code LIKE ? OR e.id=?""", (like, like, like, idm))
+        if kind in ("all", "bookings"):
+            res["Bookings"] = q(BOOKING_SQL + " WHERE s.name LIKE ? OR e.name LIKE ? OR b.id=?", (like, like, idm))
+    return render_template("admin/search.html", res=res, term=term, kind=kind)
