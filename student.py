@@ -147,3 +147,17 @@ def scorecard(bid):
     return Response("\n".join(lines), mimetype="text/csv",
                     headers={"Content-Disposition": f"attachment; filename=scorecard_{bid}.csv"})
 
+
+@bp.route("/profile", methods=["GET", "POST"])
+@student_only
+def profile():
+    if request.method == "POST":
+        f = request.form
+        if not f.get("name", "").strip():
+            flash("Name is required.", "danger")
+        else:
+            run("UPDATE users SET name=?, phone=?, department=?, roll_no=? WHERE id=?",
+                (f["name"].strip(), f.get("phone", "").strip(), f.get("department", "").strip(), f.get("roll_no", "").strip(), g.user["id"]))
+            flash("Profile updated.", "success")
+            return redirect(url_for("student.profile"))
+    return render_template("student/profile.html")
